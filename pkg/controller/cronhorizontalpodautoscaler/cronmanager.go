@@ -19,10 +19,10 @@ import (
 	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/kubernetes/pkg/controller"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 	"time"
-	"os"
 )
 
 type NoNeedUpdate struct{}
@@ -211,7 +211,7 @@ func NewCronManager(cfg *rest.Config, client client.Client, recorder record.Even
 		t, err := time.LoadLocation(tz)
 		if err != nil {
 			log.Panicf("The timezone is invalid,because of %v", err)
-			return
+			return nil
 		}
 		timezone = t
 	}
