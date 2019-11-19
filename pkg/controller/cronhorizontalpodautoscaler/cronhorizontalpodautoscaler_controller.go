@@ -215,7 +215,6 @@ func (r *ReconcileCronHorizontalPodAutoscaler) Reconcile(request reconcile.Reque
 		}
 	}
 
-	log.Infof("%v has been handled completely.", instance)
 	return reconcile.Result{}, nil
 }
 

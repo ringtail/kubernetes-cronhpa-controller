@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 	"time"
+	"os"
 )
 
 type NoNeedUpdate struct{}
@@ -203,6 +204,17 @@ func NewCronManager(cfg *rest.Config, client client.Client, recorder record.Even
 		jobQueue:      make(map[string]CronJob),
 		eventRecorder: recorder,
 	}
-	cm.cronExecutor = NewCronHPAExecutor(nil, cm.JobResultHandler)
+
+	var timezone *time.Location
+
+	if tz := os.Getenv("TZ"); tz != "" {
+		t, err := time.LoadLocation(tz)
+		if err != nil {
+			log.Panicf("The timezone is invalid,because of %v", err)
+			return
+		}
+		timezone = t
+	}
+	cm.cronExecutor = NewCronHPAExecutor(timezone, cm.JobResultHandler)
 	return cm
 }
