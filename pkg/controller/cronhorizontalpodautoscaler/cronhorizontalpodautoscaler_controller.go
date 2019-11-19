@@ -106,7 +106,6 @@ func (r *ReconcileCronHorizontalPodAutoscaler) Reconcile(request reconcile.Reque
 		return reconcile.Result{}, err
 	}
 
-	log.Infof("%v is handled by cron-hpa controller", instance)
 	conditions := instance.Status.Conditions
 
 	leftConditions := make([]v1beta1.Condition, 0)
