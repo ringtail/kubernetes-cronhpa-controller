@@ -25,12 +25,13 @@ kubectl apply -f config/deploy/deploy.yaml
 4. verify installation
 ```$xslt
 kubectl get deploy kubernetes-cronhpa-controller -n kube-system -o wide 
-
-➜  kubernetes-cronhpa-controller git:(master) ✗ kubectl get deploy kubernetes-cronhpa-controller -n kube-system
 NAME                            DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
 kubernetes-cronhpa-controller   1         1         1            1           49s
 ```
 ## Example 
+
+- ### Independent work
+
 Please try out the examples in the <a href="https://github.com/AliyunContainerService/kubernetes-cronhpa-controller/blob/master/examples">examples folder</a>.   
 
 1. Deploy sample workload and cronhpa  
@@ -41,8 +42,6 @@ kubectl apply -f examples/deployment_cronhpa.yaml
 2. Check deployment replicas  
 ```$xslt
 kubectl get deploy nginx-deployment-basic 
-
-➜  kubernetes-cronhpa-controller git:(master) ✗ kubectl get deploy nginx-deployment-basic
 NAME                     DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
 nginx-deployment-basic   2         2         2            2           9s
 ```
@@ -165,7 +164,101 @@ Events:
 ```
 🍻Cheers! It works.
 
+- ### work together  with HPA
+
+Please try out the examples in the [examples folder](https://github.com/AliyunContainerService/kubernetes-cronhpa-controller/blob/master/examples).
+
+1. Deploy sample workload and cronhpa
+
+```
+kubectl apply -f examples/deployment_cronhpa_hpa.yaml
+```
+
+2. Check deployment replicas
+
+```
+kubectl get deploy nginx-deployment-basic 
+NAME                     DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+nginx-deployment-basic   2         2         2            2           9s
+-------
+kubectl get hpa  nginx-deployment-basic-hpa
+NAME                         REFERENCE                           TARGETS   MINPODS   MAXPODS   REPLICAS   AGE
+nginx-deployment-basic-hpa   Deployment/nginx-deployment-basic   0%/50%    1         10        2          150m
+```
+
+3. Describe cronhpa status 
+```
+kubectl describe cronhpa cronhpa-sample
+Name:         cronhpa-sample
+Namespace:    default
+Labels:       controller-tools.k8s.io=1.0
+Annotations:  kubectl.kubernetes.io/last-applied-configuration:
+                {"apiVersion":"autoscaling.alibabacloud.com/v1beta1","kind":"CronHorizontalPodAutoscaler","metadata":{"annotations":{},"labels":{"contro
+ll...
+API Version:  autoscaling.alibabacloud.com/v1beta1
+Kind:         CronHorizontalPodAutoscaler
+Metadata:
+  Creation Timestamp:  2020-04-15T06:02:26Z
+  Generation:          27
+  Resource Version:    45455906
+  Self Link:           /apis/autoscaling.alibabacloud.com/v1beta1/namespaces/default/cronhorizontalpodautoscalers/cronhpa-sample
+  UID:                 ae9c547e-7ede-11ea-8a4c-00163e080212
+Spec:
+  Exclude Dates:  <nil>
+  Jobs:
+    Name:         scale-down
+    Run Once:     true
+    Schedule:     30 */1 * * * *
+    Target Size:  1
+    Name:         scale-up
+    Run Once:     true
+    Schedule:     0 */1 * * * *
+    Target Size:  3
+  Scale Target Ref:
+    API Version:  autoscaling/v1
+    Kind:         HorizontalPodAutoscaler
+    Name:         nginx-deployment-basic-hpa
+Status:
+  Conditions:
+    Job Id:           67ed5764-1311-4d34-b238-7aafc3cf4e1b
+    Last Probe Time:  2020-04-15T07:41:00Z
+    Message:          cron hpa job scale-up executed successfully. current replicas:2, desired replicas:3.
+    Name:             scale-up
+    Run Once:         true
+    Schedule:         0 */1 * * * *
+    State:            Succeed
+    Target Size:      3
+    Job Id:           a2a6233f-9873-49ff-b516-1959dd40b385
+    Last Probe Time:  2020-04-15T07:41:31Z
+    Message:          cron hpa job scale-down executed successfully. Skip scale replicas because HPA nginx-deployment-basic-hpa current replicas:3 >= de
+sired replicas:1.
+    Name:             scale-down
+    Run Once:         true
+    Schedule:         30 */1 * * * *
+    State:            Succeed
+    Target Size:      1
+  Exclude Dates:      <nil>
+  Scale Target Ref:
+    API Version:  autoscaling/v1
+    Kind:         HorizontalPodAutoscaler
+    Name:         nginx-deployment-basic-hpa
+Events:
+  Type    Reason   Age                 From                            Message
+  ----    ------   ----                ----                            -------
+  Normal  Succeed  59m (x3 over 61m)   cron-horizontal-pod-autoscaler  cron hpa job scale-down executed successfully. Skip scale replicas because HPA ng
+inx-deployment-basic-hpa current replicas:2 >= desired replicas:1.
+  Normal  Succeed  54m (x5 over 58m)   cron-horizontal-pod-autoscaler  cron hpa job scale-up executed successfully. Skip scale replicas because HPA ngin
+x-deployment-basic-hpa current replicas:3 >= desired replicas:3.
+  Normal  Succeed  53m (x3 over 151m)  cron-horizontal-pod-autoscaler  cron hpa job scale-up executed successfully. current replicas:2, desired replicas
+:3.
+  Normal  Succeed  52m (x7 over 58m)   cron-horizontal-pod-autoscaler  cron hpa job scale-down executed successfully. Skip scale replicas because HPA ng
+inx-deployment-basic-hpa current replicas:3 >= desired replicas:1.
+```
+
+Now, We can see that cronhpa can work with HPA. If we need,We can specify the object as HPA in the scale target ref field of cronhpa.For more information, please refer to FAQ
+
 ## Implementation Details
+
 The following is an example of a `CronHorizontalPodAutoscaler`. 
 ```$xslt
 apiVersion: autoscaling.alibabacloud.com/v1beta1
@@ -187,8 +280,8 @@ spec:
    - name: "scale-up"
      schedule: "0 */1 * * * *"
      targetSize: 3
-``` 
-The `scaleTargetRef` is the field to specify workload to scale. If the workload supports `scale` subresource(such as `Deployment` and `StatefulSet`), `CronHorizontalPodAutoscaler` should work well. `CronHorizontalPodAutoscaler` support multi cronhpa job in one spec. 
+```
+The `scaleTargetRef` is the field to specify workload to scale. If the workload supports `scale` subresource(such as `Deployment` and `StatefulSet` and `HPA`), `CronHorizontalPodAutoscaler` should work well. `CronHorizontalPodAutoscaler` support multi cronhpa job in one spec. 
 
 The cronhpa job spec need three fields:
 * name    
@@ -220,7 +313,7 @@ The cronhpa job spec need three fields:
   Question mark may be used instead of '*' for leaving either day-of-month or day-of-week blank.
   
   more schedule scheme please check this <a target="_blank" href="https://godoc.org/github.com/robfig/cron">doc</a>.
-                                 
+  
 * targetSize     
   `TargetSize` is the size you desired to scale when the scheduled time arrive. 
   
